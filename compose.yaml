@@ -12,6 +12,18 @@ services:
       redis:
         condition: service_healthy
 
+  worker:
+    build: .
+    command: ["uv", "run", "dramatiq", "proofread.worker"]
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:17-alpine
     environment:

@@ -64,6 +64,7 @@ class InMemoryAnalysisRepository:
 
 Collector = Callable[[str], RepositoryProfile]
 Evaluator = Callable[[RepositoryProfile], AnalysisReport]
+Narrator = Callable[[AnalysisReport], list[str]]
 
 
 def create_analysis(
@@ -89,6 +90,7 @@ def run_analysis(
     repository: AnalysisRepository,
     collector: Collector,
     evaluator: Evaluator,
+    narrator: Narrator | None = None,
 ) -> None:
     """분석을 실행하고 완료 리포트 또는 안전한 실패 상태를 저장합니다."""
     analysis = repository.get(analysis_id)
@@ -109,5 +111,10 @@ def run_analysis(
         return
     analysis.status = AnalysisStatus.COMPLETED
     analysis.snapshot = profile
+    if narrator is not None:
+        try:
+            report.narratives = narrator(report)
+        except Exception:
+            report.narratives = []
     analysis.report = report
     repository.save(analysis)

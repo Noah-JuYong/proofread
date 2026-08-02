@@ -33,7 +33,12 @@ class CreateAnalysisResponse(BaseModel):
     status: AnalysisStatus
 
 
-def create_router(*, repository: AnalysisRepository, enqueue: Callable[[UUID], None]) -> APIRouter:
+def create_router(
+    *,
+    repository: AnalysisRepository,
+    enqueue: Callable[[UUID], None],
+    on_created: Callable[[], None],
+) -> APIRouter:
     """특정 저장소와 큐 동작에 연결된 분석 라우터를 생성합니다."""
     router = APIRouter(prefix="/v1/analyses", tags=["analyses"])
 
@@ -46,6 +51,7 @@ def create_router(*, repository: AnalysisRepository, enqueue: Callable[[UUID], N
             target_role=request.target_role,
         )
         enqueue(analysis_id)
+        on_created()
         return CreateAnalysisResponse(analysis_id=analysis_id, status=AnalysisStatus.QUEUED)
 
     @router.get("/{analysis_id}", response_model=Analysis)

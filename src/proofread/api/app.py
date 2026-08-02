@@ -12,6 +12,7 @@ from uuid import UUID
 from fastapi import FastAPI
 
 from proofread.api.routes.analyses import create_router
+from proofread.observability import configure_observability
 from proofread.persistence.database import create_session_factory
 from proofread.persistence.repository import SqlAlchemyAnalysisRepository
 from proofread.services.analysis import AnalysisRepository, InMemoryAnalysisRepository
@@ -27,7 +28,14 @@ def create_app(
 
     configured_repository = repository or _default_repository()
     configured_enqueue = enqueue or _default_enqueue
-    app.include_router(create_router(repository=configured_repository, enqueue=configured_enqueue))
+    configure_observability(app)
+    app.include_router(
+        create_router(
+            repository=configured_repository,
+            enqueue=configured_enqueue,
+            on_created=app.state.observability.record_created,
+        )
+    )
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
