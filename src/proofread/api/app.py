@@ -10,8 +10,11 @@ from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from proofread.api.routes.analyses import create_router
+from proofread.api.routes.web import WEB_DIRECTORY
+from proofread.api.routes.web import create_router as create_web_router
 from proofread.observability import configure_observability
 from proofread.persistence.database import create_session_factory
 from proofread.persistence.repository import SqlAlchemyAnalysisRepository
@@ -25,6 +28,7 @@ def create_app(
 ) -> FastAPI:
     """Proofread의 HTTP 애플리케이션을 생성합니다."""
     app = FastAPI(title="Proofread")
+    app.mount("/static", StaticFiles(directory=WEB_DIRECTORY), name="static")
 
     configured_repository = repository or _default_repository()
     configured_enqueue = enqueue or _default_enqueue
@@ -36,6 +40,7 @@ def create_app(
             on_created=app.state.observability.record_created,
         )
     )
+    app.include_router(create_web_router())
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
