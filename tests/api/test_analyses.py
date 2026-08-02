@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from proofread.api.app import create_app
+from proofread.domain.models import AnalysisReport, AssessmentCategory, CategoryScore
 from proofread.services.analysis import (
     Analysis,
     AnalysisStatus,
@@ -57,6 +58,9 @@ async def test_get_analysis_returns_completed_report() -> None:
             id=analysis_id,
             repository_url="https://github.com/acme/pipeline",
             status=AnalysisStatus.COMPLETED,
+            report=AnalysisReport(
+                categories={category: CategoryScore(score=10) for category in AssessmentCategory}
+            ),
         )
     )
     transport = httpx.ASGITransport(app=create_app(repository=repository))
@@ -65,6 +69,7 @@ async def test_get_analysis_returns_completed_report() -> None:
 
     assert response.status_code == 200
     assert response.json()["status"] == "completed"
+    assert response.json()["report"]["total_score"] == 50
 
 
 @pytest.mark.anyio

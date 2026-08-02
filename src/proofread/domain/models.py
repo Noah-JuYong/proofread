@@ -6,7 +6,7 @@ HTTP 요청 처리, GitHub 통신, 작업 저장과 LLM 문안 생성은 인접 
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class AssessmentCategory(StrEnum):
@@ -62,6 +62,7 @@ class AnalysisReport(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
     narratives: list[str] = Field(default_factory=list)
 
+    @computed_field
     @property
     def total_score(self) -> int:
         """다섯 평가 축의 합계 점수를 반환합니다."""
