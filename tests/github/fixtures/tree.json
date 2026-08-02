@@ -1,0 +1,8 @@
+{
+  "tree": [
+    {"path": "README.md", "type": "blob"},
+    {"path": "pipelines/ingest_events.py", "type": "blob"},
+    {"path": "tests/test_pipeline.py", "type": "blob"},
+    {"path": ".github/workflows/ci.yml", "type": "blob"}
+  ]
+}
