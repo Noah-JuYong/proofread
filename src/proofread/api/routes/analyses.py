@@ -5,12 +5,12 @@
 """
 
 from collections.abc import Callable
-from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 
+from proofread.domain.models import TargetRole
 from proofread.services.analysis import (
     Analysis,
     AnalysisRepository,
@@ -20,10 +20,10 @@ from proofread.services.analysis import (
 
 
 class CreateAnalysisRequest(BaseModel):
-    """분석 시작 요청의 공개 저장소와 MVP 직무 범위입니다."""
+    """분석 시작 요청의 공개 저장소와 지원 직무입니다."""
 
     repository_url: str = Field(pattern=r"^https://github\.com/[^/]+/[^/]+$")
-    target_role: Literal["data_engineer"]
+    target_role: TargetRole
 
 
 class CreateAnalysisResponse(BaseModel):

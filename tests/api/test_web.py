@@ -4,6 +4,7 @@ import httpx
 import pytest
 
 from proofread.api.app import create_app
+from proofread.api.routes.web import WEB_DIRECTORY
 
 
 @pytest.mark.anyio
@@ -15,4 +16,7 @@ async def test_root_returns_analysis_form_and_script() -> None:
 
     assert response.status_code == 200
     assert 'id="analysis-form"' in response.text
+    assert 'id="target-role"' in response.text
+    assert 'value="infrastructure_engineer"' in response.text
     assert 'src="/static/app.js"' in response.text
+    assert "target_role: selectedRole" in (WEB_DIRECTORY / "app.js").read_text()
