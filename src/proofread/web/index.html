@@ -9,15 +9,20 @@
   <body>
     <main class="page">
       <header>
-        <p class="eyebrow">DATA ENGINEER PORTFOLIO</p>
+        <p class="eyebrow">GITHUB PORTFOLIO</p>
         <h1>GitHub 활동을<br />검증 가능한 포트폴리오로</h1>
-        <p>공개 저장소의 코드·문서·CI 신호를 근거와 함께 진단합니다.</p>
+        <p>데이터·인프라 직무에 맞는 코드·문서·운영 신호를 근거와 함께 진단합니다.</p>
       </header>
       <section class="panel" aria-labelledby="analysis-heading">
         <h2 id="analysis-heading">저장소 분석</h2>
         <form id="analysis-form">
           <label for="repository-url">공개 GitHub 저장소 URL</label>
           <input id="repository-url" name="repository-url" type="url" placeholder="https://github.com/owner/repository" required />
+          <label for="target-role">지원 직무</label>
+          <select id="target-role" name="target-role">
+            <option value="data_engineer">데이터 엔지니어</option>
+            <option value="infrastructure_engineer">인프라 엔지니어</option>
+          </select>
           <button type="submit">분석하기</button>
         </form>
         <p id="status" role="status" aria-live="polite"></p>
