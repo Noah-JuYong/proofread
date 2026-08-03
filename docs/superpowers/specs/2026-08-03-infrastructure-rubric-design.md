@@ -47,9 +47,9 @@ Proofread가 공개 GitHub 저장소를 `infrastructure_engineer` 관점에서�
 | 보안·운영 문서 | security, runbook, incident, architecture, secrets 관련 README 섹션·경로 | 보안 신호와 운영 문서 신호를 독립 반영 |
 
 한 축에 탐지 근거가 없으면 해당 축 점수는 0점이다. 인프라 저장소에 IaC 또는
-관측성 근거가 전혀 없으면 해당 축의 개선 finding을 만들며, evidence는 임의의
-경로가 아니라 해당하는 README 섹션 또는 탐지 실패와 직접 관계 있는 최소 경로만
-사용한다.
+관측성 근거가 전혀 없으면 해당 축의 개선 finding을 만든다. 누락 자체에는 양의
+파일 근거가 없으므로, 관련 README 섹션이 탐지된 경우에만 그 섹션을 evidence로
+쓰고 그렇지 않으면 빈 evidence 배열을 반환한다. 임의의 경로를 근거로 넣지 않는다.
 
 ## 데이터 흐름
 
