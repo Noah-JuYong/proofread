@@ -9,14 +9,26 @@ from enum import StrEnum
 from pydantic import BaseModel, Field, computed_field
 
 
+class TargetRole(StrEnum):
+    """Proofread가 지원하는 포트폴리오 대상 직무입니다."""
+
+    DATA_ENGINEER = "data_engineer"
+    INFRASTRUCTURE_ENGINEER = "infrastructure_engineer"
+
+
 class AssessmentCategory(StrEnum):
-    """데이터 엔지니어 포트폴리오 평가 축입니다."""
+    """직무별 포트폴리오 리포트가 사용하는 평가 축입니다."""
 
     DATA_FLOW = "data_flow"
     REPRODUCIBILITY = "reproducibility"
     QUALITY = "quality"
     OPERABILITY = "operability"
     RESULTS = "results"
+    INFRASTRUCTURE_AS_CODE = "infrastructure_as_code"
+    DELIVERY = "delivery"
+    PLATFORM = "platform"
+    OBSERVABILITY = "observability"
+    SECURITY_OPERATIONS = "security_operations"
 
 
 class Priority(StrEnum):

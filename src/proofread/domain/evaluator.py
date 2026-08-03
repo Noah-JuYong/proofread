@@ -13,11 +13,21 @@ from proofread.domain.models import (
     Finding,
     Priority,
     RepositoryProfile,
+    TargetRole,
 )
 
 
-def evaluate(profile: RepositoryProfile) -> AnalysisReport:
-    """확인 가능한 profile 신호만 사용해 데이터 엔지니어 포트폴리오를 평가합니다."""
+def evaluate(
+    profile: RepositoryProfile, target_role: TargetRole = TargetRole.DATA_ENGINEER
+) -> AnalysisReport:
+    """확인 가능한 profile 신호만 사용해 요청한 직무 포트폴리오를 평가합니다."""
+    if target_role is TargetRole.INFRASTRUCTURE_ENGINEER:
+        return _evaluate_infrastructure(profile)
+    return _evaluate_data_engineer(profile)
+
+
+def _evaluate_data_engineer(profile: RepositoryProfile) -> AnalysisReport:
+    """기존 데이터 엔지니어 루브릭으로 리포트를 생성합니다."""
     categories = {
         AssessmentCategory.DATA_FLOW: _data_flow_score(profile),
         AssessmentCategory.REPRODUCIBILITY: _reproducibility_score(profile),
@@ -27,6 +37,40 @@ def evaluate(profile: RepositoryProfile) -> AnalysisReport:
     }
     findings = _findings(profile, categories)
     return AnalysisReport(categories=categories, findings=findings)
+
+
+def _evaluate_infrastructure(profile: RepositoryProfile) -> AnalysisReport:
+    """인프라·플랫폼 운영 근거를 직무 전용 다섯 축으로 평가합니다."""
+    categories = {
+        AssessmentCategory.INFRASTRUCTURE_AS_CODE: _path_group_score(
+            profile,
+            ((".tf", "terraform"), 10),
+            (("pulumi", "cloudformation", "cdk"), 10),
+        ),
+        AssessmentCategory.DELIVERY: _path_group_score(
+            profile,
+            (("dockerfile",), 8),
+            (("compose.yaml", "docker-compose"), 4),
+            ((".github/workflows/deploy", ".github/workflows/release"), 8),
+        ),
+        AssessmentCategory.PLATFORM: _path_group_score(
+            profile,
+            (("k8s/", "kubernetes", "deployment.yaml"), 10),
+            (("chart.yaml", "helm"), 6),
+            (("kustomize", "argocd", "argo-cd"), 4),
+        ),
+        AssessmentCategory.OBSERVABILITY: _path_group_score(
+            profile,
+            (("prometheus", "grafana", "opentelemetry", "otel"), 8),
+            (("alertmanager", "alert", "pagerduty"), 6),
+            (("slo", "retry", "backoff"), 6),
+        ),
+        AssessmentCategory.SECURITY_OPERATIONS: _security_operations_score(profile),
+    }
+    return AnalysisReport(
+        categories=categories,
+        findings=_infrastructure_findings(profile, categories),
+    )
 
 
 def _data_flow_score(profile: RepositoryProfile) -> CategoryScore:
@@ -92,6 +136,33 @@ def _results_score(profile: RepositoryProfile) -> CategoryScore:
     return CategoryScore(score=min(20, len(evidence) * 4), evidence=evidence)
 
 
+def _path_group_score(
+    profile: RepositoryProfile, *groups: tuple[tuple[str, ...], int]
+) -> CategoryScore:
+    """서로 다른 인프라 신호 묶음의 점수와 실제 경로를 합산합니다."""
+    evidence: list[str] = []
+    score = 0
+    for terms, points in groups:
+        matched = _matching_paths(profile, terms)
+        if matched:
+            evidence.extend(matched)
+            score += points
+    return CategoryScore(score=min(20, score), evidence=_unique_sorted(evidence))
+
+
+def _security_operations_score(profile: RepositoryProfile) -> CategoryScore:
+    """보안 자동화와 운영 문서 신호를 독립적으로 평가합니다."""
+    security_evidence = _matching_paths(profile, ("security", "secrets", "sbom", "scan"))
+    documentation_evidence = _readme_evidence(
+        profile, ("runbook", "incident", "architecture", "operations")
+    )
+    score = (10 if security_evidence else 0) + (10 if documentation_evidence else 0)
+    return CategoryScore(
+        score=score,
+        evidence=_unique_sorted([*security_evidence, *documentation_evidence]),
+    )
+
+
 def _findings(
     profile: RepositoryProfile, categories: dict[AssessmentCategory, CategoryScore]
 ) -> list[Finding]:
@@ -130,6 +201,42 @@ def _findings(
                 message="테스트 또는 CI 품질 신호를 확인할 수 없습니다.",
                 recommendation="최소한의 자동화 테스트와 CI 워크플로우를 추가하세요.",
                 evidence=_unique_sorted(list(profile.paths)[:1]),
+            )
+        )
+    return findings
+
+
+def _infrastructure_findings(
+    profile: RepositoryProfile, categories: dict[AssessmentCategory, CategoryScore]
+) -> list[Finding]:
+    """인프라 루브릭에서 누락된 핵심 운영 근거를 안전하게 안내합니다."""
+    findings: list[Finding] = []
+    if categories[AssessmentCategory.INFRASTRUCTURE_AS_CODE].score == 0:
+        findings.append(
+            Finding(
+                code="missing_infrastructure_as_code_evidence",
+                category=AssessmentCategory.INFRASTRUCTURE_AS_CODE,
+                priority=Priority.MEDIUM,
+                message="IaC 또는 클라우드 구성 근거를 확인할 수 없습니다.",
+                recommendation=(
+                    "Terraform, Pulumi 또는 클라우드 구성 파일과 적용 범위를 문서화하세요."
+                ),
+                evidence=_readme_evidence(
+                    profile, ("iac", "infrastructure", "terraform", "cloud")
+                ),
+            )
+        )
+    if categories[AssessmentCategory.OBSERVABILITY].score == 0:
+        findings.append(
+            Finding(
+                code="missing_observability_evidence",
+                category=AssessmentCategory.OBSERVABILITY,
+                priority=Priority.MEDIUM,
+                message="관측성·알림 또는 복구 근거를 확인할 수 없습니다.",
+                recommendation="메트릭, 대시보드, 알림, 재시도 정책과 운영 절차를 문서화하세요.",
+                evidence=_readme_evidence(
+                    profile, ("observability", "monitoring", "alert", "runbook")
+                ),
             )
         )
     return findings
