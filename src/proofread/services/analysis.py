@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 
-from proofread.domain.models import AnalysisReport, RepositoryProfile
+from proofread.domain.models import AnalysisReport, RepositoryProfile, TargetRole
 from proofread.github.errors import GitHubCollectionError
 
 
@@ -29,7 +29,7 @@ class Analysis(BaseModel):
 
     id: UUID
     repository_url: str
-    target_role: str = "data_engineer"
+    target_role: TargetRole = TargetRole.DATA_ENGINEER
     status: AnalysisStatus
     snapshot: RepositoryProfile | None = None
     report: AnalysisReport | None = None
@@ -63,7 +63,7 @@ class InMemoryAnalysisRepository:
 
 
 Collector = Callable[[str], RepositoryProfile]
-Evaluator = Callable[[RepositoryProfile], AnalysisReport]
+Evaluator = Callable[[RepositoryProfile, TargetRole], AnalysisReport]
 Narrator = Callable[[AnalysisReport], list[str]]
 
 
@@ -71,7 +71,7 @@ def create_analysis(
     repository_url: str,
     *,
     repository: AnalysisRepository,
-    target_role: str = "data_engineer",
+    target_role: TargetRole = TargetRole.DATA_ENGINEER,
 ) -> UUID:
     """큐에 넣기 전 새 분석을 queued 상태로 저장합니다."""
     analysis = Analysis(
@@ -99,7 +99,7 @@ def run_analysis(
     repository.save(analysis)
     try:
         profile = collector(analysis.repository_url)
-        report = evaluator(profile)
+        report = evaluator(profile, analysis.target_role)
     except GitHubCollectionError as error:
         if error.retryable:
             analysis.status = AnalysisStatus.QUEUED

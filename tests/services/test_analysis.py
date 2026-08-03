@@ -3,7 +3,7 @@
 import pytest
 
 from proofread.domain.evaluator import evaluate
-from proofread.domain.models import RepositoryProfile
+from proofread.domain.models import AnalysisReport, RepositoryProfile, TargetRole
 from proofread.github.errors import RateLimited, RepositoryNotFound
 from proofread.services.analysis import (
     AnalysisStatus,
@@ -63,3 +63,27 @@ def test_run_analysis_reraises_retryable_rate_limit() -> None:
         )
 
     assert repository.get(analysis_id).status is AnalysisStatus.QUEUED
+
+
+def test_run_analysis_passes_stored_target_role_to_evaluator() -> None:
+    """worker 실행은 분석 요청에 저장된 인프라 역할로 평가기를 호출합니다."""
+    repository = InMemoryAnalysisRepository()
+    analysis_id = create_analysis(
+        "https://github.com/acme/platform",
+        repository=repository,
+        target_role=TargetRole.INFRASTRUCTURE_ENGINEER,
+    )
+    received_roles: list[TargetRole] = []
+
+    def evaluator(profile: RepositoryProfile, role: TargetRole) -> AnalysisReport:
+        received_roles.append(role)
+        return evaluate(profile, role)
+
+    run_analysis(
+        analysis_id,
+        repository=repository,
+        collector=lambda _: RepositoryProfile(repository_url="https://github.com/acme/platform"),
+        evaluator=evaluator,
+    )
+
+    assert received_roles == [TargetRole.INFRASTRUCTURE_ENGINEER]
