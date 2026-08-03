@@ -1,13 +1,14 @@
 # Proofread
 
-Evidence-based GitHub portfolio analysis for data engineers. Every recommendation links to a
-detected file or README section, rather than relying on a free-form model score.
+Proofread는 데이터 엔지니어를 위한 근거 기반 GitHub 포트폴리오 분석 도구입니다.
+자유 형식의 모델 점수에 의존하지 않고, 탐지한 파일 또는 README 섹션을 모든
+개선 제안의 근거로 연결합니다.
 
-Proofread evaluates data-flow evidence, reproducibility, quality, operability, and measurable
-results. The MVP supports public repositories and the `data_engineer` role only. Scores and
-findings are deterministic; an optional LLM adapter may only reword existing findings.
+이 도구는 데이터 흐름의 근거, 재현성, 품질, 운영성, 측정 가능한 결과를 평가합니다.
+MVP는 공개 저장소와 `data_engineer` 직무만 지원합니다. 점수와 finding은 결정론적으로
+계산하며, 선택적 LLM 어댑터는 기존 finding의 문안만 다듬을 수 있습니다.
 
-## Local development
+## 로컬 개발
 
 ```bash
 cp .env.example .env
@@ -15,29 +16,31 @@ uv sync --group dev
 uv run uvicorn proofread.api.app:create_app --factory --reload
 ```
 
-Verify the running service with `GET http://127.0.0.1:8000/healthz`.
+실행 중인 서비스는 `GET http://localhost:8000/healthz`로 확인합니다.
 
-Start the local infrastructure with:
+API, worker, PostgreSQL, Redis를 함께 실행하려면 다음 명령을 사용합니다.
 
 ```bash
 docker compose up --build
 ```
 
-The first release will analyse public GitHub repositories only.
+첫 릴리스는 공개 GitHub 저장소만 분석합니다.
 
 ## API
 
 ```bash
-curl -X POST http://127.0.0.1:8000/v1/analyses \
+curl -X POST http://localhost:8000/v1/analyses \
   -H 'content-type: application/json' \
   -d '{"repository_url":"https://github.com/owner/repository","target_role":"data_engineer"}'
 ```
 
-Poll `GET /v1/analyses/{analysis_id}` for the queued, running, completed, or failed result. The
-Compose worker processes jobs through Redis and PostgreSQL.
+`GET /v1/analyses/{analysis_id}`를 조회하면 `queued`, `running`, `completed`,
+`failed` 상태와 결과를 확인할 수 있습니다. Compose worker는 Redis와 PostgreSQL을
+통해 작업을 처리합니다.
 
-## Privacy and contributing
+## 개인정보 보호와 기여
 
-Proofread keeps public GitHub metadata only. It does not persist GitHub tokens, LLM keys, or LLM
-request bodies, and it does not place repository URLs in metric labels. Before opening a pull
-request, run `uv run pytest -v`, `uv run ruff check .`, and `docker compose config`.
+Proofread는 공개 GitHub 메타데이터만 보관합니다. GitHub 토큰, LLM 키, LLM 요청
+본문은 저장하지 않으며, 저장소 URL을 메트릭 라벨에도 사용하지 않습니다. Pull Request를
+열기 전에는 `uv run pytest -v`, `uv run ruff check .`, `docker compose config`를
+실행합니다.

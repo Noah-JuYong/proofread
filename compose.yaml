@@ -14,7 +14,7 @@ services:
 
   worker:
     build: .
-    command: ["uv", "run", "dramatiq", "proofread.worker"]
+    command: ["uv", "run", "--no-sync", "dramatiq", "proofread.worker"]
     env_file:
       - path: .env
         required: false

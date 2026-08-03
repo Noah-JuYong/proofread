@@ -9,9 +9,9 @@ Proofread는 공개 GitHub 저장소를 데이터 엔지니어 취업 포트폴�
 사용자가 공개 저장소 URL을 제출하면 API가 분석 작업을 생성한다. 워커는 README, 파일 트리, GitHub Actions, 언어 통계, 최근 커밋을 수집해 스냅샷으로 보관한다. 정규화된 `RepositoryProfile`은 순수 규칙 평가기에 전달되고, 결과 `AnalysisReport`가 조회 API에 저장된다.
 
 ```text
-browser or CLI -> FastAPI -> PostgreSQL + Redis queue -> worker
-worker -> GitHub REST API -> snapshot -> rule evaluator -> report
-                                        -> optional LLM wording
+브라우저 또는 CLI -> FastAPI -> PostgreSQL + Redis 큐 -> worker
+worker -> GitHub REST API -> snapshot -> 규칙 평가기 -> report
+                                        -> 선택적 LLM 문안 생성
 ```
 
 ## 평가 기준
@@ -24,7 +24,7 @@ worker -> GitHub REST API -> snapshot -> rule evaluator -> report
 4. 운영성: 로그·재시도·오류 처리·데이터 검증
 5. 결과: 데이터 규모·처리량·비용·품질 지표·실험 결과
 
-예를 들어 테스트 파일과 CI가 있는데 README에 검증 방법이 없으면, 평가기는 해당 경로를 evidence로 붙인 high-priority finding을 만든다. 점수와 finding은 오직 규칙 기반 신호로만 생성한다.
+예를 들어 테스트 파일과 CI가 있는데 README에 검증 방법이 없으면, 평가기는 해당 경로를 evidence로 붙인 높은 우선순위의 finding을 만든다. 점수와 finding은 오직 규칙 기반 신호로만 생성한다.
 
 ## LLM 경계
 
