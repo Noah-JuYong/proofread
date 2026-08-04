@@ -1,6 +1,8 @@
 """localhost Codex 동반 프로세스의 HTTP 계약을 검증합니다."""
 
+import tomllib
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 import pytest
@@ -85,3 +87,12 @@ async def test_narratives_return_only_existing_finding_messages() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"narratives": ["테스트를 추가하세요."]}
+
+
+def test_project_declares_local_companion_command() -> None:
+    """패키지는 localhost 동반 프로세스 실행 명령을 제공합니다."""
+    project = tomllib.loads(Path("pyproject.toml").read_text())
+
+    assert project["project"]["scripts"]["proofread-codex-companion"] == (
+        "proofread.companion.cli:main"
+    )
