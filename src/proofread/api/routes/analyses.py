@@ -58,11 +58,34 @@ def create_router(
     def get(analysis_id: UUID) -> Analysis:
         """저장된 분석 상태와 완료된 리포트를 반환합니다."""
         try:
-            return repository.get(analysis_id)
+            analysis = repository.get(analysis_id)
         except KeyError as error:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found."
             ) from error
+        if analysis.status is AnalysisStatus.COMPLETED and analysis.report is not None:
+            previous = next(
+                (
+                    item
+                    for item in repository.list_recent()
+                    if item.id != analysis.id
+                    and item.repository_url == analysis.repository_url
+                    and item.status is AnalysisStatus.COMPLETED
+                    and item.report is not None
+                ),
+                None,
+            )
+            if previous is not None and previous.report is not None:
+                category_deltas = {
+                    category.value: score.score
+                    - previous.report.categories.get(category, score).score
+                    for category, score in analysis.report.categories.items()
+                }
+                analysis.comparison = {
+                    "total_score_delta": analysis.report.total_score - previous.report.total_score,
+                    "category_deltas": category_deltas,
+                }
+        return analysis
 
     @router.get("", response_model=list[Analysis])
     def list_recent() -> list[Analysis]:

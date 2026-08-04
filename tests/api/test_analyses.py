@@ -150,3 +150,26 @@ async def test_list_analyses_returns_recent_items() -> None:
 
     assert response.status_code == 200
     assert response.json()[0]["id"] == str(analysis_id)
+
+
+@pytest.mark.anyio
+async def test_get_analysis_compares_previous_same_repository() -> None:
+    """완료 분석은 같은 저장소의 직전 점수 대비를 반환합니다."""
+    repository = InMemoryAnalysisRepository()
+    previous_id, current_id = uuid4(), uuid4()
+    for analysis_id, score in [(previous_id, 10), (current_id, 15)]:
+        repository.create(
+            Analysis(
+                id=analysis_id,
+                repository_url="https://github.com/acme/pipeline",
+                status=AnalysisStatus.COMPLETED,
+                report=AnalysisReport(
+                    categories={AssessmentCategory.DATA_FLOW: CategoryScore(score=score)}
+                ),
+            )
+        )
+    transport = httpx.ASGITransport(app=create_app(repository=repository))
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(f"/v1/analyses/{current_id}")
+
+    assert response.json()["comparison"]["total_score_delta"] == 5

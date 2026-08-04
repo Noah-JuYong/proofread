@@ -34,6 +34,7 @@ class Analysis(BaseModel):
     snapshot: RepositoryProfile | None = None
     report: AnalysisReport | None = None
     error_code: str | None = None
+    comparison: dict[str, object] | None = None
 
 
 class AnalysisRepository(Protocol):
