@@ -1,9 +1,12 @@
+import { buildApplicationSummary, buildFullReport, downloadMarkdown } from "./report_export.mjs";
+
 const form = document.querySelector("#analysis-form");
 const status = document.querySelector("#status");
 const report = document.querySelector("#report");
 const codexFeedback = document.querySelector("#codex-feedback");
 const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
+let activeNarratives = [];
 
 const categoryLabels = {
   data_flow: "데이터 흐름",
@@ -61,6 +64,12 @@ function render(analysis) {
     report.append(item);
   });
   renderCodexFeedback(analysis.report);
+  const exports = document.createElement("p");
+  exports.append(
+    codexButton("전체 Markdown 다운로드", () => downloadMarkdown("proofread-full-report.md", buildFullReport(analysis.report, activeNarratives))),
+    codexButton("취업 지원 요약 다운로드", () => downloadMarkdown("proofread-job-application-summary.md", buildApplicationSummary(analysis.report))),
+  );
+  report.append(exports);
 }
 
 function codexButton(label, callback) {
@@ -90,6 +99,7 @@ async function renderCodexFeedback(analysisReport) {
         body: JSON.stringify(analysisReport),
       });
       const body = await response.json();
+      activeNarratives = body.narratives;
       codexFeedback.append(text("p", body.narratives.join(" · ")));
     }));
   } catch {
