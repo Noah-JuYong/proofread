@@ -53,6 +53,10 @@ function render(analysis) {
     scores.append(card);
   });
   report.append(scores);
+  if (analysis.comparison) {
+    const delta = analysis.comparison.total_score_delta;
+    report.append(text("p", `직전 분석 대비 총점 ${delta >= 0 ? "+" : ""}${delta}점`));
+  }
   analysis.report.findings.forEach((finding) => {
     const item = document.createElement("article");
     item.className = "finding";
