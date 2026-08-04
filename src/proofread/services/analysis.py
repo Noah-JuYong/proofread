@@ -45,6 +45,8 @@ class AnalysisRepository(Protocol):
 
     def save(self, analysis: Analysis) -> None: ...
 
+    def list_recent(self, limit: int = 20) -> list[Analysis]: ...
+
 
 class InMemoryAnalysisRepository:
     """HTTP 통합 테스트와 로컬 단위 테스트용 비영속 저장소입니다."""
@@ -60,6 +62,10 @@ class InMemoryAnalysisRepository:
 
     def save(self, analysis: Analysis) -> None:
         self._analyses[analysis.id] = analysis
+
+    def list_recent(self, limit: int = 20) -> list[Analysis]:
+        """테스트용 저장 순서 기준의 최근 분석을 반환합니다."""
+        return list(self._analyses.values())[-limit:][::-1]
 
 
 Collector = Callable[[str], RepositoryProfile]

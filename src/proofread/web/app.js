@@ -4,6 +4,7 @@ const form = document.querySelector("#analysis-form");
 const status = document.querySelector("#status");
 const report = document.querySelector("#report");
 const codexFeedback = document.querySelector("#codex-feedback");
+const history = document.querySelector("#history");
 const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 let activeNarratives = [];
@@ -116,6 +117,18 @@ async function poll(id) {
   }
 }
 
+async function renderHistory() {
+  try {
+    const response = await fetch("/v1/analyses");
+    const analyses = await response.json();
+    history.replaceChildren(text("h2", "최근 분석 이력"));
+    analyses.forEach((analysis) => {
+      const button = codexButton(`${analysis.repository_url} · ${analysis.status}`, () => poll(analysis.id));
+      history.append(button);
+    });
+  } catch { history.append(text("p", "이력을 불러오지 못했습니다.")); }
+}
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   report.hidden = true;
@@ -132,4 +145,7 @@ form.addEventListener("submit", async (event) => {
     return;
   }
   poll((await response.json()).analysis_id);
+  renderHistory();
 });
+
+renderHistory();

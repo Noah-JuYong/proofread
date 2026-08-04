@@ -64,4 +64,9 @@ def create_router(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found."
             ) from error
 
+    @router.get("", response_model=list[Analysis])
+    def list_recent() -> list[Analysis]:
+        """최근 분석 이력을 최신 순서로 반환합니다."""
+        return repository.list_recent()
+
     return router
