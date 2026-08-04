@@ -24,6 +24,22 @@ API, worker, PostgreSQL, Redis를 함께 실행하려면 다음 명령을 사용
 docker compose up --build
 ```
 
+## 로컬 Codex AI 피드백
+
+분석 점수와 finding은 항상 규칙 기반으로 계산합니다. 선택적 AI 피드백은 각 사용자의
+PC에서만 동작하며, Docker 컨테이너에는 Codex 로그인 정보가 전달되지 않습니다.
+
+Compose 실행 뒤 별도 터미널에서 다음을 실행합니다.
+
+```bash
+uv run proofread-codex-companion
+```
+
+브라우저에서 `http://localhost:8000`을 열고 분석을 완료한 뒤 `Codex로 로그인`과
+`AI 피드백 생성`을 차례로 선택합니다. 사용자는 자신의 PC에 Codex CLI를 설치하고
+직접 로그인해야 합니다. OAuth 토큰과 LLM 요청 본문은 Proofread 데이터베이스나 로그에
+저장하지 않습니다.
+
 첫 릴리스는 공개 GitHub 저장소만 분석합니다.
 
 ## API

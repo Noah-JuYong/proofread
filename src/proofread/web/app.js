@@ -1,6 +1,9 @@
 const form = document.querySelector("#analysis-form");
 const status = document.querySelector("#status");
 const report = document.querySelector("#report");
+const codexFeedback = document.querySelector("#codex-feedback");
+const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
+const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 
 const categoryLabels = {
   data_flow: "데이터 흐름",
@@ -57,6 +60,41 @@ function render(analysis) {
     item.lastChild.className = "evidence";
     report.append(item);
   });
+  renderCodexFeedback(analysis.report);
+}
+
+function codexButton(label, callback) {
+  const button = text("button", label);
+  button.addEventListener("click", callback);
+  return button;
+}
+
+async function renderCodexFeedback(analysisReport) {
+  codexFeedback.replaceChildren();
+  codexFeedback.hidden = false;
+  try {
+    const response = await fetch(codexStatusUrl);
+    const status = await response.json();
+    codexFeedback.append(text("h2", "선택적 Codex AI 피드백"));
+    if (!status.authenticated) {
+      codexFeedback.append(text("p", "본인 PC의 Codex 계정으로 로그인해 주세요."));
+      codexFeedback.append(codexButton("Codex로 로그인", async () => {
+        await fetch(`${codexBaseUrl}/login`, { method: "POST" });
+        await renderCodexFeedback(analysisReport);
+      }));
+      return;
+    }
+    codexFeedback.append(codexButton("AI 피드백 생성", async () => {
+      const response = await fetch(`${codexBaseUrl}/narratives`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(analysisReport),
+      });
+      const body = await response.json();
+      codexFeedback.append(text("p", body.narratives.join(" · ")));
+    }));
+  } catch {
+    codexFeedback.append(text("p", "로컬 AI 기능: uv run proofread-codex-companion"));
+  }
 }
 
 async function poll(id) {
