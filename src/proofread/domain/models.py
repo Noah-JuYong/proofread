@@ -14,6 +14,7 @@ class TargetRole(StrEnum):
 
     DATA_ENGINEER = "data_engineer"
     INFRASTRUCTURE_ENGINEER = "infrastructure_engineer"
+    AI_ENGINEER = "ai_engineer"
 
 
 class AssessmentCategory(StrEnum):
@@ -29,6 +30,11 @@ class AssessmentCategory(StrEnum):
     PLATFORM = "platform"
     OBSERVABILITY = "observability"
     SECURITY_OPERATIONS = "security_operations"
+    DATA_FEATURES = "data_features"
+    MODEL_DEVELOPMENT = "model_development"
+    MODEL_EVALUATION = "model_evaluation"
+    EXPERIMENT_REPRODUCIBILITY = "experiment_reproducibility"
+    SERVING_MLOPS = "serving_mlops"
 
 
 class Priority(StrEnum):

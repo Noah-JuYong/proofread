@@ -1,4 +1,4 @@
-"""저장소 증거를 데이터 엔지니어 포트폴리오 리포트로 평가합니다.
+"""저장소 증거를 직무별 포트폴리오 리포트로 평가합니다.
 
 이 모듈은 수집 완료된 ``RepositoryProfile``을 결정적 규칙으로 점수와 finding으로
 변환합니다. GitHub API 호출, HTTP 응답, 작업 저장, LLM 문안 생성은 담당하지 않습니다.
@@ -23,6 +23,8 @@ def evaluate(
     """확인 가능한 profile 신호만 사용해 요청한 직무 포트폴리오를 평가합니다."""
     if target_role is TargetRole.INFRASTRUCTURE_ENGINEER:
         return _evaluate_infrastructure(profile)
+    if target_role is TargetRole.AI_ENGINEER:
+        return _evaluate_ai(profile)
     return _evaluate_data_engineer(profile)
 
 
@@ -71,6 +73,43 @@ def _evaluate_infrastructure(profile: RepositoryProfile) -> AnalysisReport:
         categories=categories,
         findings=_infrastructure_findings(profile, categories),
     )
+
+
+def _evaluate_ai(profile: RepositoryProfile) -> AnalysisReport:
+    """AI 모델 수명 주기 근거를 직무 전용 다섯 축으로 평가합니다."""
+    evaluation_evidence = _path_group_score(
+        profile,
+        (("evaluate", "metrics", "benchmark", "fairness", "bias"), 10),
+    )
+    model_card_evidence = _readme_evidence(profile, ("model card", "evaluation", "metrics"))
+    categories = {
+        AssessmentCategory.DATA_FEATURES: _path_group_score(
+            profile,
+            (("data/", "dataset"), 10),
+            (("feature", "feast", "dvc"), 10),
+        ),
+        AssessmentCategory.MODEL_DEVELOPMENT: _path_group_score(
+            profile,
+            (("train", "model"), 10),
+            (("notebook", ".ipynb"), 5),
+            (("pytorch", "tensorflow", "scikit", "sklearn"), 5),
+        ),
+        AssessmentCategory.MODEL_EVALUATION: CategoryScore(
+            score=min(20, evaluation_evidence.score + (10 if model_card_evidence else 0)),
+            evidence=_unique_sorted([*evaluation_evidence.evidence, *model_card_evidence]),
+        ),
+        AssessmentCategory.EXPERIMENT_REPRODUCIBILITY: _path_group_score(
+            profile,
+            (("mlflow", "mlruns", "wandb", "weights"), 10),
+            (("dvc", "config", "lock", "seed"), 10),
+        ),
+        AssessmentCategory.SERVING_MLOPS: _path_group_score(
+            profile,
+            (("inference", "predict", "fastapi", "bentoml", "kserve", "seldon"), 10),
+            (("monitoring", "model_metrics", "drift", "deployment"), 6),
+        ),
+    }
+    return AnalysisReport(categories=categories, findings=_ai_findings(profile, categories))
 
 
 def _data_flow_score(profile: RepositoryProfile) -> CategoryScore:
@@ -237,6 +276,36 @@ def _infrastructure_findings(
                 evidence=_readme_evidence(
                     profile, ("observability", "monitoring", "alert", "runbook")
                 ),
+            )
+        )
+    return findings
+
+
+def _ai_findings(
+    profile: RepositoryProfile, categories: dict[AssessmentCategory, CategoryScore]
+) -> list[Finding]:
+    """AI 루브릭에서 누락된 데이터와 평가 근거를 안전하게 안내합니다."""
+    findings: list[Finding] = []
+    if categories[AssessmentCategory.DATA_FEATURES].score == 0:
+        findings.append(
+            Finding(
+                code="missing_data_evidence",
+                category=AssessmentCategory.DATA_FEATURES,
+                priority=Priority.MEDIUM,
+                message="데이터셋 또는 피처 관리 근거를 확인할 수 없습니다.",
+                recommendation="데이터셋, 피처 정의, 버전 관리와 검증 절차를 문서화하세요.",
+                evidence=_readme_evidence(profile, ("data", "dataset", "feature")),
+            )
+        )
+    if categories[AssessmentCategory.MODEL_EVALUATION].score == 0:
+        findings.append(
+            Finding(
+                code="missing_model_evaluation_evidence",
+                category=AssessmentCategory.MODEL_EVALUATION,
+                priority=Priority.MEDIUM,
+                message="모델 평가 또는 책임 있는 AI 근거를 확인할 수 없습니다.",
+                recommendation="평가 지표, benchmark, model card와 한계를 문서화하세요.",
+                evidence=_readme_evidence(profile, ("evaluation", "metrics", "model card")),
             )
         )
     return findings
