@@ -129,3 +129,24 @@ async def test_get_analysis_returns_not_found() -> None:
         response = await client.get(f"/v1/analyses/{uuid4()}")
 
     assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_list_analyses_returns_recent_items() -> None:
+    """최근 분석 목록은 로컬 저장소의 완료 결과를 반환합니다."""
+    repository = InMemoryAnalysisRepository()
+    analysis_id = uuid4()
+    repository.create(
+        Analysis(
+            id=analysis_id,
+            repository_url="https://github.com/acme/pipeline",
+            status=AnalysisStatus.COMPLETED,
+            report=AnalysisReport(categories={}),
+        )
+    )
+    transport = httpx.ASGITransport(app=create_app(repository=repository))
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/v1/analyses")
+
+    assert response.status_code == 200
+    assert response.json()[0]["id"] == str(analysis_id)

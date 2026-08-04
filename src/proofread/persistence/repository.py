@@ -2,6 +2,7 @@
 
 from uuid import UUID
 
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from proofread.domain.models import AnalysisReport, RepositoryProfile
@@ -37,6 +38,14 @@ class SqlAlchemyAnalysisRepository(AnalysisRepository):
             )
             record.report = analysis.report.model_dump(mode="json") if analysis.report else None
             record.error_code = analysis.error_code
+
+    def list_recent(self, limit: int = 20) -> list[Analysis]:
+        """생성 시각 내림차순으로 최근 분석을 반환합니다."""
+        with self._sessions() as session:
+            records = session.scalars(
+                select(AnalysisRecord).order_by(desc(AnalysisRecord.created_at)).limit(limit)
+            )
+            return [_to_analysis(record) for record in records]
 
 
 def _to_record(analysis: Analysis) -> AnalysisRecord:
