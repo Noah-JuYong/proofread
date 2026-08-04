@@ -2,7 +2,7 @@
 
 ## 목표
 
-Proofread는 공개 GitHub 저장소를 데이터·인프라 엔지니어 취업 포트폴리오 관점에서 분석하고, 확인 가능한 코드·문서 근거와 개선 과제를 제공하는 오픈소스 서비스다. 지원 직무는 `data_engineer`, `infrastructure_engineer`다.
+Proofread는 공개 GitHub 저장소를 데이터·인프라·AI 엔지니어 취업 포트폴리오 관점에서 분석하고, 확인 가능한 코드·문서 근거와 개선 과제를 제공하는 오픈소스 서비스다. 지원 직무는 `data_engineer`, `infrastructure_engineer`, `ai_engineer`다.
 
 ## 사용자 흐름
 
@@ -27,6 +27,8 @@ worker -> GitHub REST API -> snapshot -> 규칙 평가기 -> report
 예를 들어 테스트 파일과 CI가 있는데 README에 검증 방법이 없으면, 평가기는 해당 경로를 evidence로 붙인 높은 우선순위의 finding을 만든다. 점수와 finding은 오직 규칙 기반 신호로만 생성한다.
 
 인프라 엔지니어 루브릭은 IaC·클라우드 구성, 컨테이너·배포 자동화, 플랫폼·오케스트레이션, 관측성·신뢰성, 보안·운영 문서를 각각 0점부터 20점까지 평가한다.
+
+AI 엔지니어 루브릭은 데이터·피처, 모델 개발, 평가·책임 있는 AI, 실험·재현성, 서빙·MLOps를 각각 0점부터 20점까지 평가한다.
 
 ## LLM 경계
 

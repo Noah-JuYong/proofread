@@ -13,6 +13,11 @@ const categoryLabels = {
   platform: "플랫폼·오케스트레이션",
   observability: "관측성·신뢰성",
   security_operations: "보안·운영 문서",
+  data_features: "데이터·피처",
+  model_development: "모델 개발",
+  model_evaluation: "평가·책임 있는 AI",
+  experiment_reproducibility: "실험·재현성",
+  serving_mlops: "서빙·MLOps",
 };
 
 function text(tag, value) {
