@@ -1,12 +1,35 @@
 # Proofread
 
-Proofread는 데이터 엔지니어를 위한 근거 기반 GitHub 포트폴리오 분석 도구입니다.
+Proofread는 데이터·인프라·AI 엔지니어를 위한 근거 기반 GitHub 포트폴리오 분석 도구입니다.
 자유 형식의 모델 점수에 의존하지 않고, 탐지한 파일 또는 README 섹션을 모든
 개선 제안의 근거로 연결합니다.
 
 이 도구는 역할별 코드·문서·운영 근거를 평가합니다. 공개 저장소에서
 `data_engineer`, `infrastructure_engineer`, `ai_engineer` 직무를 지원합니다. 점수와
 finding은 결정론적으로 계산하며, 선택적 LLM 어댑터는 기존 finding의 문안만 다듬을 수 있습니다.
+
+## 할 수 있는 일
+
+- 데이터 엔지니어, 인프라 엔지니어, AI 엔지니어 역할별 포트폴리오 진단
+- 파일 경로와 README 섹션을 근거로 연결한 점수·개선 과제
+- 선택적 로컬 Codex AI 피드백: 점수는 절대 변경하지 않음
+- 전체 진단 리포트와 취업 지원 요약 Markdown 다운로드
+- 최근 20개 분석 이력과 같은 저장소의 직전 점수 대비 확인
+
+## 3분 안에 시작하기
+
+Docker Desktop과 Python/uv를 준비한 뒤 다음을 실행합니다.
+
+```bash
+git clone https://github.com/Noah-JuYong/proofread.git
+cd proofread
+cp .env.example .env
+docker compose up --build
+```
+
+브라우저에서 `http://localhost:8000`을 열고 공개 GitHub 저장소 URL과 지원 직무를
+입력합니다. 분석이 끝나면 근거 기반 개선 과제, Markdown 다운로드, 이전 분석 대비를
+확인할 수 있습니다.
 
 ## 로컬 개발
 
@@ -54,9 +77,28 @@ curl -X POST http://localhost:8000/v1/analyses \
 `failed` 상태와 결과를 확인할 수 있습니다. Compose worker는 Redis와 PostgreSQL을
 통해 작업을 처리합니다.
 
-## 개인정보 보호와 기여
+최근 이력은 `GET /v1/analyses`에서 확인합니다. 완료 분석 상세에는 같은 저장소의 직전
+완료 결과가 있으면 `comparison.total_score_delta`와 카테고리별 변화가 포함됩니다.
+
+## 예시 활용
+
+1. 지원 직무를 선택하고 자신의 공개 저장소를 분석합니다.
+2. high 우선순위 finding의 근거를 확인해 README·테스트·배포 문서를 보강합니다.
+3. `취업 지원 요약 다운로드`를 눌러 이력서나 지원 문서 초안에 붙여 넣습니다.
+4. 다시 분석해 이전 결과와 점수 변화를 확인합니다.
+
+## 개인정보 보호
 
 Proofread는 공개 GitHub 메타데이터만 보관합니다. GitHub 토큰, LLM 키, LLM 요청
-본문은 저장하지 않으며, 저장소 URL을 메트릭 라벨에도 사용하지 않습니다. Pull Request를
-열기 전에는 `uv run pytest -v`, `uv run ruff check .`, `docker compose config`를
-실행합니다.
+본문은 저장하지 않으며, 저장소 URL을 메트릭 라벨에도 사용하지 않습니다.
+
+## 기여하기
+
+버그·개선 제안은 [Issues](https://github.com/Noah-JuYong/proofread/issues)에 남겨 주세요.
+Pull Request를 열기 전에는 다음을 실행합니다.
+
+```bash
+uv run pytest -v
+uv run ruff check .
+docker compose config --quiet
+```
