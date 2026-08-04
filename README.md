@@ -5,8 +5,8 @@ Proofread는 데이터 엔지니어를 위한 근거 기반 GitHub 포트폴리�
 개선 제안의 근거로 연결합니다.
 
 이 도구는 역할별 코드·문서·운영 근거를 평가합니다. 공개 저장소에서
-`data_engineer`와 `infrastructure_engineer` 직무를 지원합니다. 점수와 finding은
-결정론적으로 계산하며, 선택적 LLM 어댑터는 기존 finding의 문안만 다듬을 수 있습니다.
+`data_engineer`, `infrastructure_engineer`, `ai_engineer` 직무를 지원합니다. 점수와
+finding은 결정론적으로 계산하며, 선택적 LLM 어댑터는 기존 finding의 문안만 다듬을 수 있습니다.
 
 ## 로컬 개발
 

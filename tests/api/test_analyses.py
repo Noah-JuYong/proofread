@@ -73,6 +73,25 @@ async def test_create_analysis_accepts_infrastructure_role() -> None:
 
 
 @pytest.mark.anyio
+async def test_create_analysis_accepts_ai_role() -> None:
+    """AI 엔지니어 역할은 큐에 넣을 분석 작업에 그대로 저장합니다."""
+    repository = InMemoryAnalysisRepository()
+    enqueued: list[UUID] = []
+    transport = httpx.ASGITransport(app=create_app(repository=repository, enqueue=enqueued.append))
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/v1/analyses",
+            json={
+                "repository_url": "https://github.com/acme/model-service",
+                "target_role": "ai_engineer",
+            },
+        )
+
+    assert response.status_code == 202
+    assert repository.get(enqueued[0]).target_role is TargetRole.AI_ENGINEER
+
+
+@pytest.mark.anyio
 async def test_get_analysis_returns_completed_report() -> None:
     """완료된 작업은 저장된 근거 리포트를 그대로 조회할 수 있습니다."""
     repository = InMemoryAnalysisRepository()

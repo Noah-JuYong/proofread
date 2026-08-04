@@ -87,3 +87,47 @@ def test_evaluate_infrastructure_reports_missing_iac_without_false_evidence() ->
         if finding.code == "missing_infrastructure_as_code_evidence"
     )
     assert finding.evidence == []
+
+
+def test_evaluate_ai_report_uses_model_lifecycle_evidence() -> None:
+    """AI 역할은 데이터부터 서빙까지의 모델 수명 주기 근거를 점수화합니다."""
+    profile = RepositoryProfile(
+        repository_url="https://github.com/acme/model-service",
+        paths={
+            "data/dataset.py",
+            "features/definitions.py",
+            "src/train.py",
+            "src/models/model.py",
+            "notebooks/evaluate.ipynb",
+            "mlruns/0/meta.yaml",
+            "dvc.yaml",
+            "services/inference.py",
+            "monitoring/model_metrics.py",
+        },
+        readme_sections={"model card"},
+    )
+
+    report = evaluate(profile, TargetRole.AI_ENGINEER)
+
+    assert report.score_for(AssessmentCategory.DATA_FEATURES) == 20
+    assert report.score_for(AssessmentCategory.MODEL_DEVELOPMENT) == 15
+    assert report.score_for(AssessmentCategory.MODEL_EVALUATION) == 20
+    assert report.score_for(AssessmentCategory.EXPERIMENT_REPRODUCIBILITY) == 20
+    assert report.score_for(AssessmentCategory.SERVING_MLOPS) == 16
+
+
+def test_evaluate_ai_reports_missing_data_without_false_evidence() -> None:
+    """데이터 근거가 없는 AI 저장소에는 임의의 파일을 evidence로 넣지 않습니다."""
+    report = evaluate(
+        RepositoryProfile(
+            repository_url="https://github.com/acme/model-service",
+            paths={"src/train.py"},
+            readme_sections={"overview"},
+        ),
+        TargetRole.AI_ENGINEER,
+    )
+
+    finding = next(
+        finding for finding in report.findings if finding.code == "missing_data_evidence"
+    )
+    assert finding.evidence == []
