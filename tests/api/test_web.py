@@ -19,6 +19,9 @@ async def test_root_returns_analysis_form_and_script() -> None:
     assert 'id="target-role"' in response.text
     assert 'value="infrastructure_engineer"' in response.text
     assert 'value="ai_engineer"' in response.text
+    assert 'id="codex-feedback"' in response.text
     assert 'src="/static/app.js"' in response.text
     assert "target_role: selectedRole" in (WEB_DIRECTORY / "app.js").read_text()
     assert 'model_development: "모델 개발"' in (WEB_DIRECTORY / "app.js").read_text()
+    assert "http://127.0.0.1:8751/v1/codex/status" in (WEB_DIRECTORY / "app.js").read_text()
+    assert "AI 피드백 생성" in (WEB_DIRECTORY / "app.js").read_text()
