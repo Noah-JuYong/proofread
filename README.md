@@ -8,6 +8,9 @@ Proofread는 데이터·인프라·AI 엔지니어를 위한 근거 기반 GitHu
 `data_engineer`, `infrastructure_engineer`, `ai_engineer` 직무를 지원합니다. 점수와
 finding은 결정론적으로 계산하며, 선택적 LLM 어댑터는 기존 finding의 문안만 다듬을 수 있습니다.
 
+> v0.1.0은 로컬 우선 릴리스입니다. 공개 GitHub 저장소만 분석하며 공용 호스팅은
+> 제공하지 않습니다.
+
 ## 할 수 있는 일
 
 - 데이터 엔지니어, 인프라 엔지니어, AI 엔지니어 역할별 포트폴리오 진단
@@ -91,6 +94,15 @@ curl -X POST http://localhost:8000/v1/analyses \
 
 Proofread는 공개 GitHub 메타데이터만 보관합니다. GitHub 토큰, LLM 키, LLM 요청
 본문은 저장하지 않으며, 저장소 URL을 메트릭 라벨에도 사용하지 않습니다.
+
+## 알려진 제한 사항
+
+- 공개 GitHub 저장소만 지원하며 GitHub API 제한의 영향을 받을 수 있습니다.
+- 공용 배포 URL은 제공하지 않습니다. Docker Compose로 로컬에서 실행합니다.
+- Codex AI 피드백은 선택 사항이며 사용자 자신의 ChatGPT/Codex 계정 권한과 사용량을
+  따릅니다.
+- 화면 자료는 브라우저 자동화가 가능한 환경에서 후속 추가합니다. 현재 릴리스는 실제
+  Compose API·worker·DB·Redis E2E로 검증했습니다.
 
 ## 기여하기
 
