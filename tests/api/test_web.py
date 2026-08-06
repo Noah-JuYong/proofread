@@ -32,3 +32,6 @@ async def test_root_returns_analysis_form_and_script() -> None:
     assert "AI 피드백 생성" in (WEB_DIRECTORY / "app.js").read_text()
     assert "retryLastAnalysis" in (WEB_DIRECTORY / "app.js").read_text()
     assert "showDownloadError" in (WEB_DIRECTORY / "app.js").read_text()
+    app_script = (WEB_DIRECTORY / "app.js").read_text()
+    assert "async function runCodexAction" in app_script
+    assert app_script.count("runCodexAction(async () =>") == 2
