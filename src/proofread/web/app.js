@@ -12,6 +12,7 @@ const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 let activeNarratives = [];
 let activeAnalysisId = null;
+let analysisViewGeneration = 0;
 let codexRequestGeneration = 0;
 let retryAnalysisAction = null;
 let retryCodexAction = null;
@@ -57,6 +58,16 @@ function activateAnalysis(analysisId) {
   return codexRequestGeneration;
 }
 
+function startAnalysis(request) {
+  analysisViewGeneration += 1;
+  submitAnalysis(request, analysisViewGeneration);
+}
+
+function openAnalysis(analysisId) {
+  analysisViewGeneration += 1;
+  poll(analysisId, analysisViewGeneration);
+}
+
 function render(analysis) {
   report.replaceChildren();
   report.hidden = false;
@@ -66,7 +77,7 @@ function render(analysis) {
       ? `분석 실패: ${analysis.error_code}`
       : "분석 중입니다. 잠시만 기다려 주세요.";
     setAnalysisRetry(analysis.status === "failed"
-      ? () => submitAnalysis({
+      ? () => startAnalysis({
         repository_url: analysis.repository_url,
         target_role: analysis.target_role,
       })
@@ -148,6 +159,7 @@ async function runCodexAction(action, failureMessage, requestGeneration) {
 }
 
 async function renderCodexFeedback(analysisReport, requestGeneration) {
+  if (requestGeneration !== codexRequestGeneration) return;
   codexFeedback.replaceChildren();
   codexFeedback.hidden = false;
   try {
@@ -201,16 +213,21 @@ async function renderCodexFeedback(analysisReport, requestGeneration) {
   }
 }
 
-async function poll(id) {
+async function poll(id, viewGeneration) {
   try {
     const response = await fetch(`/v1/analyses/${id}`);
+    if (viewGeneration !== analysisViewGeneration) return;
     if (!response.ok) throw new Error("analysis_poll_failed");
     const analysis = await response.json();
+    if (viewGeneration !== analysisViewGeneration) return;
     render(analysis);
-    if (["queued", "running"].includes(analysis.status)) setTimeout(() => poll(id), 2000);
+    if (["queued", "running"].includes(analysis.status)) {
+      setTimeout(() => poll(id, viewGeneration), 2000);
+    }
   } catch {
+    if (viewGeneration !== analysisViewGeneration) return;
     status.textContent = "분석 상태를 불러오지 못했습니다.";
-    setAnalysisRetry(() => poll(id));
+    setAnalysisRetry(() => poll(id, viewGeneration));
   }
 }
 
@@ -220,13 +237,16 @@ async function renderHistory() {
     const analyses = await response.json();
     history.replaceChildren(text("h2", "최근 분석 이력"));
     analyses.forEach((analysis) => {
-      const button = codexButton(`${analysis.repository_url} · ${analysis.status}`, () => poll(analysis.id));
+      const button = codexButton(
+        `${analysis.repository_url} · ${analysis.status}`,
+        () => openAnalysis(analysis.id),
+      );
       history.append(button);
     });
   } catch { history.append(text("p", "이력을 불러오지 못했습니다.")); }
 }
 
-async function submitAnalysis(request) {
+async function submitAnalysis(request, viewGeneration) {
   report.hidden = true;
   setAnalysisRetry(null);
   status.textContent = "분석 요청을 전송 중입니다.";
@@ -235,16 +255,18 @@ async function submitAnalysis(request) {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify(request),
     });
+    if (viewGeneration !== analysisViewGeneration) return;
     if (response.status === 422) {
       status.textContent = "올바른 공개 GitHub 저장소 URL을 입력해 주세요.";
       return;
     }
     if (!response.ok) throw new Error("analysis_create_failed");
-    poll((await response.json()).analysis_id);
+    poll((await response.json()).analysis_id, viewGeneration);
     renderHistory();
   } catch {
+    if (viewGeneration !== analysisViewGeneration) return;
     status.textContent = "분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
-    setAnalysisRetry(() => submitAnalysis(request));
+    setAnalysisRetry(() => startAnalysis(request));
   }
 }
 
@@ -254,7 +276,7 @@ function retryLastAnalysis() {
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  submitAnalysis({
+  startAnalysis({
     repository_url: document.querySelector("#repository-url").value,
     target_role: document.querySelector("#target-role").value,
   });

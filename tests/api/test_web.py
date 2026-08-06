@@ -39,7 +39,7 @@ async def test_root_returns_analysis_form_and_script() -> None:
     assert "Codex CLI가 설치되어 있지 않습니다." in app_script
     assert "response.status === 422" in app_script
     assert "올바른 공개 GitHub 저장소 URL을 입력해 주세요." in app_script
-    assert "setAnalysisRetry(() => poll(id))" in app_script
+    assert "setAnalysisRetry(() => poll(id, viewGeneration))" in app_script
     assert "Codex 로그인에 실패했습니다. 다시 시도해 주세요." in app_script
     assert "AI 피드백 생성에 실패했습니다. 다시 시도해 주세요." in app_script
     assert "retryCodexAction" in app_script
@@ -51,3 +51,12 @@ async def test_root_returns_analysis_form_and_script() -> None:
         'codexFeedback.replaceChildren(\n          text("h2", "선택적 Codex AI 피드백"),'
         in app_script
     )
+    codex_render = app_script.index("async function renderCodexFeedback")
+    stale_check = app_script.index(
+        "if (requestGeneration !== codexRequestGeneration)", codex_render
+    )
+    panel_clear = app_script.index("codexFeedback.replaceChildren();", codex_render)
+    assert stale_check < panel_clear
+    assert "analysisViewGeneration" in app_script
+    assert "async function poll(id, viewGeneration)" in app_script
+    assert "if (viewGeneration !== analysisViewGeneration) return;" in app_script
