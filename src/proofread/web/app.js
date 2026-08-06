@@ -11,8 +11,8 @@ const downloadError = document.querySelector("#download-error");
 const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 let activeNarratives = [];
-let lastAnalysisRequest = null;
 let lastAnalysisReport = null;
+let retryAnalysisAction = null;
 
 const categoryLabels = {
   data_flow: "데이터 흐름",
@@ -38,6 +38,11 @@ function text(tag, value) {
   return element;
 }
 
+function setAnalysisRetry(action) {
+  retryAnalysisAction = action;
+  retryAnalysis.hidden = action === null;
+}
+
 function render(analysis) {
   report.replaceChildren();
   report.hidden = false;
@@ -45,10 +50,15 @@ function render(analysis) {
     status.textContent = analysis.status === "failed"
       ? `분석 실패: ${analysis.error_code}`
       : "분석 중입니다. 잠시만 기다려 주세요.";
-    retryAnalysis.hidden = analysis.status !== "failed";
+    setAnalysisRetry(analysis.status === "failed"
+      ? () => submitAnalysis({
+        repository_url: analysis.repository_url,
+        target_role: analysis.target_role,
+      })
+      : null);
     return;
   }
-  retryAnalysis.hidden = true;
+  setAnalysisRetry(null);
   status.textContent = "분석이 완료되었습니다.";
   lastAnalysisReport = analysis.report;
   report.append(text("h2", `총점 ${analysis.report.total_score}/100`));
@@ -122,6 +132,11 @@ async function renderCodexFeedback(analysisReport) {
     const status = await response.json();
     retryCodex.hidden = true;
     codexFeedback.append(text("h2", "선택적 Codex AI 피드백"));
+    if (!status.available) {
+      codexFeedback.append(text("p", "Codex CLI가 설치되어 있지 않습니다."));
+      retryCodex.hidden = false;
+      return;
+    }
     if (!status.authenticated) {
       codexFeedback.append(text("p", "본인 PC의 Codex 계정으로 로그인해 주세요."));
       codexFeedback.append(codexButton("Codex로 로그인", () => {
@@ -159,7 +174,7 @@ async function poll(id) {
     if (["queued", "running"].includes(analysis.status)) setTimeout(() => poll(id), 2000);
   } catch {
     status.textContent = "분석 상태를 불러오지 못했습니다.";
-    retryAnalysis.hidden = false;
+    setAnalysisRetry(() => poll(id));
   }
 }
 
@@ -177,25 +192,28 @@ async function renderHistory() {
 
 async function submitAnalysis(request) {
   report.hidden = true;
-  retryAnalysis.hidden = true;
+  setAnalysisRetry(null);
   status.textContent = "분석 요청을 전송 중입니다.";
-  lastAnalysisRequest = request;
   try {
     const response = await fetch("/v1/analyses", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify(request),
     });
+    if (response.status === 422) {
+      status.textContent = "올바른 공개 GitHub 저장소 URL을 입력해 주세요.";
+      return;
+    }
     if (!response.ok) throw new Error("analysis_create_failed");
     poll((await response.json()).analysis_id);
     renderHistory();
   } catch {
     status.textContent = "분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
-    retryAnalysis.hidden = false;
+    setAnalysisRetry(() => submitAnalysis(request));
   }
 }
 
 function retryLastAnalysis() {
-  if (lastAnalysisRequest) submitAnalysis(lastAnalysisRequest);
+  if (retryAnalysisAction) retryAnalysisAction();
 }
 
 form.addEventListener("submit", (event) => {

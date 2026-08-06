@@ -35,3 +35,8 @@ async def test_root_returns_analysis_form_and_script() -> None:
     app_script = (WEB_DIRECTORY / "app.js").read_text()
     assert "async function runCodexAction" in app_script
     assert app_script.count("runCodexAction(async () =>") == 2
+    assert "if (!status.available)" in app_script
+    assert "Codex CLI가 설치되어 있지 않습니다." in app_script
+    assert "response.status === 422" in app_script
+    assert "올바른 공개 GitHub 저장소 URL을 입력해 주세요." in app_script
+    assert "setAnalysisRetry(() => poll(id))" in app_script
