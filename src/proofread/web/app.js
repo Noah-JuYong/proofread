@@ -5,9 +5,17 @@ const status = document.querySelector("#status");
 const report = document.querySelector("#report");
 const codexFeedback = document.querySelector("#codex-feedback");
 const history = document.querySelector("#history");
+const retryAnalysis = document.querySelector("#retry-analysis");
+const retryCodex = document.querySelector("#retry-codex");
+const downloadError = document.querySelector("#download-error");
 const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 let activeNarratives = [];
+let activeAnalysisId = null;
+let analysisViewGeneration = 0;
+let codexRequestGeneration = 0;
+let retryAnalysisAction = null;
+let retryCodexAction = null;
 
 const categoryLabels = {
   data_flow: "데이터 흐름",
@@ -33,15 +41,50 @@ function text(tag, value) {
   return element;
 }
 
+function setAnalysisRetry(action) {
+  retryAnalysisAction = action;
+  retryAnalysis.hidden = action === null;
+}
+
+function activateAnalysis(analysisId) {
+  if (activeAnalysisId !== analysisId) {
+    activeAnalysisId = analysisId;
+    activeNarratives = [];
+    codexRequestGeneration += 1;
+    retryCodexAction = null;
+    retryCodex.hidden = true;
+    codexFeedback.hidden = true;
+  }
+  return codexRequestGeneration;
+}
+
+function startAnalysis(request) {
+  analysisViewGeneration += 1;
+  submitAnalysis(request, analysisViewGeneration);
+}
+
+function openAnalysis(analysisId) {
+  analysisViewGeneration += 1;
+  poll(analysisId, analysisViewGeneration);
+}
+
 function render(analysis) {
   report.replaceChildren();
   report.hidden = false;
+  const requestGeneration = activateAnalysis(analysis.id);
   if (analysis.status !== "completed") {
     status.textContent = analysis.status === "failed"
       ? `분석 실패: ${analysis.error_code}`
       : "분석 중입니다. 잠시만 기다려 주세요.";
+    setAnalysisRetry(analysis.status === "failed"
+      ? () => startAnalysis({
+        repository_url: analysis.repository_url,
+        target_role: analysis.target_role,
+      })
+      : null);
     return;
   }
+  setAnalysisRetry(null);
   status.textContent = "분석이 완료되었습니다.";
   report.append(text("h2", `총점 ${analysis.report.total_score}/100`));
   const scores = document.createElement("div");
@@ -68,13 +111,22 @@ function render(analysis) {
     item.lastChild.className = "evidence";
     report.append(item);
   });
-  renderCodexFeedback(analysis.report);
+  renderCodexFeedback(analysis.report, requestGeneration);
   const exports = document.createElement("p");
   exports.append(
-    codexButton("전체 Markdown 다운로드", () => downloadMarkdown("proofread-full-report.md", buildFullReport(analysis.report, activeNarratives))),
-    codexButton("취업 지원 요약 다운로드", () => downloadMarkdown("proofread-job-application-summary.md", buildApplicationSummary(analysis.report))),
+    codexButton("전체 Markdown 다운로드", () => safeDownload("proofread-full-report.md", buildFullReport(analysis.report, activeNarratives))),
+    codexButton("취업 지원 요약 다운로드", () => safeDownload("proofread-job-application-summary.md", buildApplicationSummary(analysis.report))),
   );
   report.append(exports);
+}
+
+function showDownloadError() {
+  downloadError.hidden = false;
+}
+
+function safeDownload(filename, content) {
+  downloadError.hidden = true;
+  try { downloadMarkdown(filename, content); } catch { showDownloadError(); }
 }
 
 function codexButton(label, callback) {
@@ -83,41 +135,99 @@ function codexButton(label, callback) {
   return button;
 }
 
-async function renderCodexFeedback(analysisReport) {
+function showCodexError(message, retryAction, requestGeneration) {
+  if (requestGeneration !== codexRequestGeneration) return;
+  codexFeedback.replaceChildren(
+    text("h2", "선택적 Codex AI 피드백"),
+    text("p", message),
+  );
+  retryCodexAction = retryAction;
+  retryCodex.hidden = retryAction === null;
+}
+
+async function runCodexAction(action, failureMessage, requestGeneration) {
+  retryCodex.hidden = true;
+  try {
+    await action();
+  } catch {
+    showCodexError(
+      failureMessage,
+      () => runCodexAction(action, failureMessage, requestGeneration),
+      requestGeneration,
+    );
+  }
+}
+
+async function renderCodexFeedback(analysisReport, requestGeneration) {
+  if (requestGeneration !== codexRequestGeneration) return;
   codexFeedback.replaceChildren();
   codexFeedback.hidden = false;
   try {
     const response = await fetch(codexStatusUrl);
+    if (requestGeneration !== codexRequestGeneration) return;
+    if (!response.ok) throw new Error("codex_status_failed");
     const status = await response.json();
+    if (requestGeneration !== codexRequestGeneration) return;
+    retryCodexAction = null;
+    retryCodex.hidden = true;
     codexFeedback.append(text("h2", "선택적 Codex AI 피드백"));
+    if (!status.available) {
+      codexFeedback.append(text("p", "Codex CLI가 설치되어 있지 않습니다."));
+      retryCodexAction = () => renderCodexFeedback(analysisReport, requestGeneration);
+      retryCodex.hidden = false;
+      return;
+    }
     if (!status.authenticated) {
       codexFeedback.append(text("p", "본인 PC의 Codex 계정으로 로그인해 주세요."));
-      codexFeedback.append(codexButton("Codex로 로그인", async () => {
-        await fetch(`${codexBaseUrl}/login`, { method: "POST" });
-        await renderCodexFeedback(analysisReport);
+      codexFeedback.append(codexButton("Codex로 로그인", () => {
+        runCodexAction(async () => {
+          const loginResponse = await fetch(`${codexBaseUrl}/login`, { method: "POST" });
+          if (!loginResponse.ok) throw new Error("codex_login_failed");
+          await renderCodexFeedback(analysisReport, requestGeneration);
+        }, "Codex 로그인에 실패했습니다. 다시 시도해 주세요.", requestGeneration);
       }));
       return;
     }
-    codexFeedback.append(codexButton("AI 피드백 생성", async () => {
-      const response = await fetch(`${codexBaseUrl}/narratives`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify(analysisReport),
-      });
-      const body = await response.json();
-      activeNarratives = body.narratives;
-      codexFeedback.append(text("p", body.narratives.join(" · ")));
+    codexFeedback.append(codexButton("AI 피드백 생성", () => {
+      runCodexAction(async () => {
+        const response = await fetch(`${codexBaseUrl}/narratives`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify(analysisReport),
+        });
+        if (!response.ok) throw new Error("codex_generation_failed");
+        const body = await response.json();
+        if (requestGeneration !== codexRequestGeneration) return;
+        activeNarratives = body.narratives;
+        codexFeedback.replaceChildren(
+          text("h2", "선택적 Codex AI 피드백"),
+          text("p", body.narratives.join(" · ")),
+        );
+      }, "AI 피드백 생성에 실패했습니다. 다시 시도해 주세요.", requestGeneration);
     }));
   } catch {
-    codexFeedback.append(text("p", "로컬 AI 기능: uv run proofread-codex-companion"));
+    showCodexError(
+      "Codex 연결에 실패했습니다. 로컬 동반 프로세스를 확인해 주세요.",
+      () => renderCodexFeedback(analysisReport, requestGeneration),
+      requestGeneration,
+    );
   }
 }
 
-async function poll(id) {
-  const response = await fetch(`/v1/analyses/${id}`);
-  const analysis = await response.json();
-  render(analysis);
-  if (["queued", "running"].includes(analysis.status)) {
-    setTimeout(() => poll(id), 2000);
+async function poll(id, viewGeneration) {
+  try {
+    const response = await fetch(`/v1/analyses/${id}`);
+    if (viewGeneration !== analysisViewGeneration) return;
+    if (!response.ok) throw new Error("analysis_poll_failed");
+    const analysis = await response.json();
+    if (viewGeneration !== analysisViewGeneration) return;
+    render(analysis);
+    if (["queued", "running"].includes(analysis.status)) {
+      setTimeout(() => poll(id, viewGeneration), 2000);
+    }
+  } catch {
+    if (viewGeneration !== analysisViewGeneration) return;
+    status.textContent = "분석 상태를 불러오지 못했습니다.";
+    setAnalysisRetry(() => poll(id, viewGeneration));
   }
 }
 
@@ -127,29 +237,54 @@ async function renderHistory() {
     const analyses = await response.json();
     history.replaceChildren(text("h2", "최근 분석 이력"));
     analyses.forEach((analysis) => {
-      const button = codexButton(`${analysis.repository_url} · ${analysis.status}`, () => poll(analysis.id));
+      const button = codexButton(
+        `${analysis.repository_url} · ${analysis.status}`,
+        () => openAnalysis(analysis.id),
+      );
       history.append(button);
     });
   } catch { history.append(text("p", "이력을 불러오지 못했습니다.")); }
 }
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
+async function submitAnalysis(request, viewGeneration) {
   report.hidden = true;
+  setAnalysisRetry(null);
   status.textContent = "분석 요청을 전송 중입니다.";
-  const url = document.querySelector("#repository-url").value;
-  const selectedRole = document.querySelector("#target-role").value;
-  const response = await fetch("/v1/analyses", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ repository_url: url, target_role: selectedRole }),
-  });
-  if (!response.ok) {
-    status.textContent = "올바른 공개 GitHub 저장소 URL을 입력해 주세요.";
-    return;
+  try {
+    const response = await fetch("/v1/analyses", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    if (viewGeneration !== analysisViewGeneration) return;
+    if (response.status === 422) {
+      status.textContent = "올바른 공개 GitHub 저장소 URL을 입력해 주세요.";
+      return;
+    }
+    if (!response.ok) throw new Error("analysis_create_failed");
+    poll((await response.json()).analysis_id, viewGeneration);
+    renderHistory();
+  } catch {
+    if (viewGeneration !== analysisViewGeneration) return;
+    status.textContent = "분석 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+    setAnalysisRetry(() => startAnalysis(request));
   }
-  poll((await response.json()).analysis_id);
-  renderHistory();
+}
+
+function retryLastAnalysis() {
+  if (retryAnalysisAction) retryAnalysisAction();
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  startAnalysis({
+    repository_url: document.querySelector("#repository-url").value,
+    target_role: document.querySelector("#target-role").value,
+  });
+});
+
+retryAnalysis.addEventListener("click", retryLastAnalysis);
+retryCodex.addEventListener("click", () => {
+  if (retryCodexAction) retryCodexAction();
 });
 
 renderHistory();
