@@ -11,6 +11,8 @@ const downloadError = document.querySelector("#download-error");
 const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 let activeNarratives = [];
+let activeAnalysisId = null;
+let codexRequestGeneration = 0;
 let retryAnalysisAction = null;
 let retryCodexAction = null;
 
@@ -43,9 +45,22 @@ function setAnalysisRetry(action) {
   retryAnalysis.hidden = action === null;
 }
 
+function activateAnalysis(analysisId) {
+  if (activeAnalysisId !== analysisId) {
+    activeAnalysisId = analysisId;
+    activeNarratives = [];
+    codexRequestGeneration += 1;
+    retryCodexAction = null;
+    retryCodex.hidden = true;
+    codexFeedback.hidden = true;
+  }
+  return codexRequestGeneration;
+}
+
 function render(analysis) {
   report.replaceChildren();
   report.hidden = false;
+  const requestGeneration = activateAnalysis(analysis.id);
   if (analysis.status !== "completed") {
     status.textContent = analysis.status === "failed"
       ? `분석 실패: ${analysis.error_code}`
@@ -85,7 +100,7 @@ function render(analysis) {
     item.lastChild.className = "evidence";
     report.append(item);
   });
-  renderCodexFeedback(analysis.report);
+  renderCodexFeedback(analysis.report, requestGeneration);
   const exports = document.createElement("p");
   exports.append(
     codexButton("전체 Markdown 다운로드", () => safeDownload("proofread-full-report.md", buildFullReport(analysis.report, activeNarratives))),
@@ -109,7 +124,8 @@ function codexButton(label, callback) {
   return button;
 }
 
-function showCodexError(message, retryAction) {
+function showCodexError(message, retryAction, requestGeneration) {
+  if (requestGeneration !== codexRequestGeneration) return;
   codexFeedback.replaceChildren(
     text("h2", "선택적 Codex AI 피드백"),
     text("p", message),
@@ -118,28 +134,34 @@ function showCodexError(message, retryAction) {
   retryCodex.hidden = retryAction === null;
 }
 
-async function runCodexAction(action, failureMessage) {
+async function runCodexAction(action, failureMessage, requestGeneration) {
   retryCodex.hidden = true;
   try {
     await action();
   } catch {
-    showCodexError(failureMessage, () => runCodexAction(action, failureMessage));
+    showCodexError(
+      failureMessage,
+      () => runCodexAction(action, failureMessage, requestGeneration),
+      requestGeneration,
+    );
   }
 }
 
-async function renderCodexFeedback(analysisReport) {
+async function renderCodexFeedback(analysisReport, requestGeneration) {
   codexFeedback.replaceChildren();
   codexFeedback.hidden = false;
   try {
     const response = await fetch(codexStatusUrl);
+    if (requestGeneration !== codexRequestGeneration) return;
     if (!response.ok) throw new Error("codex_status_failed");
     const status = await response.json();
+    if (requestGeneration !== codexRequestGeneration) return;
     retryCodexAction = null;
     retryCodex.hidden = true;
     codexFeedback.append(text("h2", "선택적 Codex AI 피드백"));
     if (!status.available) {
       codexFeedback.append(text("p", "Codex CLI가 설치되어 있지 않습니다."));
-      retryCodexAction = () => renderCodexFeedback(analysisReport);
+      retryCodexAction = () => renderCodexFeedback(analysisReport, requestGeneration);
       retryCodex.hidden = false;
       return;
     }
@@ -149,8 +171,8 @@ async function renderCodexFeedback(analysisReport) {
         runCodexAction(async () => {
           const loginResponse = await fetch(`${codexBaseUrl}/login`, { method: "POST" });
           if (!loginResponse.ok) throw new Error("codex_login_failed");
-          await renderCodexFeedback(analysisReport);
-        }, "Codex 로그인에 실패했습니다. 다시 시도해 주세요.");
+          await renderCodexFeedback(analysisReport, requestGeneration);
+        }, "Codex 로그인에 실패했습니다. 다시 시도해 주세요.", requestGeneration);
       }));
       return;
     }
@@ -162,14 +184,19 @@ async function renderCodexFeedback(analysisReport) {
         });
         if (!response.ok) throw new Error("codex_generation_failed");
         const body = await response.json();
+        if (requestGeneration !== codexRequestGeneration) return;
         activeNarratives = body.narratives;
-        codexFeedback.append(text("p", body.narratives.join(" · ")));
-      }, "AI 피드백 생성에 실패했습니다. 다시 시도해 주세요.");
+        codexFeedback.replaceChildren(
+          text("h2", "선택적 Codex AI 피드백"),
+          text("p", body.narratives.join(" · ")),
+        );
+      }, "AI 피드백 생성에 실패했습니다. 다시 시도해 주세요.", requestGeneration);
     }));
   } catch {
     showCodexError(
       "Codex 연결에 실패했습니다. 로컬 동반 프로세스를 확인해 주세요.",
-      () => renderCodexFeedback(analysisReport),
+      () => renderCodexFeedback(analysisReport, requestGeneration),
+      requestGeneration,
     );
   }
 }

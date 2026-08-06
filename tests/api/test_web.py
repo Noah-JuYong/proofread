@@ -44,3 +44,10 @@ async def test_root_returns_analysis_form_and_script() -> None:
     assert "AI 피드백 생성에 실패했습니다. 다시 시도해 주세요." in app_script
     assert "retryCodexAction" in app_script
     assert "if (retryCodexAction) retryCodexAction();" in app_script
+    assert "activeAnalysisId" in app_script
+    assert "codexRequestGeneration" in app_script
+    assert "requestGeneration !== codexRequestGeneration" in app_script
+    assert (
+        'codexFeedback.replaceChildren(\n          text("h2", "선택적 Codex AI 피드백"),'
+        in app_script
+    )
