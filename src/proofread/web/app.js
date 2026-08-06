@@ -11,8 +11,8 @@ const downloadError = document.querySelector("#download-error");
 const codexBaseUrl = "http://127.0.0.1:8751/v1/codex";
 const codexStatusUrl = "http://127.0.0.1:8751/v1/codex/status";
 let activeNarratives = [];
-let lastAnalysisReport = null;
 let retryAnalysisAction = null;
+let retryCodexAction = null;
 
 const categoryLabels = {
   data_flow: "데이터 흐름",
@@ -60,7 +60,6 @@ function render(analysis) {
   }
   setAnalysisRetry(null);
   status.textContent = "분석이 완료되었습니다.";
-  lastAnalysisReport = analysis.report;
   report.append(text("h2", `총점 ${analysis.report.total_score}/100`));
   const scores = document.createElement("div");
   scores.className = "scores";
@@ -110,17 +109,22 @@ function codexButton(label, callback) {
   return button;
 }
 
-function showCodexConnectionError() {
+function showCodexError(message, retryAction) {
   codexFeedback.replaceChildren(
     text("h2", "선택적 Codex AI 피드백"),
-    text("p", "Codex 연결에 실패했습니다. 로컬 동반 프로세스를 확인해 주세요."),
+    text("p", message),
   );
-  retryCodex.hidden = false;
+  retryCodexAction = retryAction;
+  retryCodex.hidden = retryAction === null;
 }
 
-async function runCodexAction(action) {
+async function runCodexAction(action, failureMessage) {
   retryCodex.hidden = true;
-  try { await action(); } catch { showCodexConnectionError(); }
+  try {
+    await action();
+  } catch {
+    showCodexError(failureMessage, () => runCodexAction(action, failureMessage));
+  }
 }
 
 async function renderCodexFeedback(analysisReport) {
@@ -130,10 +134,12 @@ async function renderCodexFeedback(analysisReport) {
     const response = await fetch(codexStatusUrl);
     if (!response.ok) throw new Error("codex_status_failed");
     const status = await response.json();
+    retryCodexAction = null;
     retryCodex.hidden = true;
     codexFeedback.append(text("h2", "선택적 Codex AI 피드백"));
     if (!status.available) {
       codexFeedback.append(text("p", "Codex CLI가 설치되어 있지 않습니다."));
+      retryCodexAction = () => renderCodexFeedback(analysisReport);
       retryCodex.hidden = false;
       return;
     }
@@ -144,7 +150,7 @@ async function renderCodexFeedback(analysisReport) {
           const loginResponse = await fetch(`${codexBaseUrl}/login`, { method: "POST" });
           if (!loginResponse.ok) throw new Error("codex_login_failed");
           await renderCodexFeedback(analysisReport);
-        });
+        }, "Codex 로그인에 실패했습니다. 다시 시도해 주세요.");
       }));
       return;
     }
@@ -158,10 +164,13 @@ async function renderCodexFeedback(analysisReport) {
         const body = await response.json();
         activeNarratives = body.narratives;
         codexFeedback.append(text("p", body.narratives.join(" · ")));
-      });
+      }, "AI 피드백 생성에 실패했습니다. 다시 시도해 주세요.");
     }));
   } catch {
-    showCodexConnectionError();
+    showCodexError(
+      "Codex 연결에 실패했습니다. 로컬 동반 프로세스를 확인해 주세요.",
+      () => renderCodexFeedback(analysisReport),
+    );
   }
 }
 
@@ -226,7 +235,7 @@ form.addEventListener("submit", (event) => {
 
 retryAnalysis.addEventListener("click", retryLastAnalysis);
 retryCodex.addEventListener("click", () => {
-  if (lastAnalysisReport) renderCodexFeedback(lastAnalysisReport);
+  if (retryCodexAction) retryCodexAction();
 });
 
 renderHistory();
